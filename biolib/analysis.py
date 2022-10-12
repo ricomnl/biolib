@@ -3,6 +3,7 @@ import random
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def pca_obs_corr(adata, obs_names, pca_key='X_pca', plot=False):
@@ -88,3 +89,32 @@ def subset_donors(adata, group_by, donor_id, keep_n=3, plot=False):
         plt.axhline(keep_n, c='r')
         plt.show()
     return keep_donor_ids
+
+
+def bin_age(adata, max_age=110, step_size=5, return_labels=False):
+    """Bin age into bins of `step_size` years.
+
+    Parameters
+    ----------
+    adata : AnnData
+        AnnData object.
+    max_age : int, optional
+        Maximum age to bin, by default 110
+    step_size : int, optional
+        Size of bins, by default 5
+    return_labels : bool, optional
+        Whether to return bin labels, by default False
+
+    Returns
+    -------
+    AnnData
+        AnnData object with binned age.
+    list
+        List of bin labels.
+    """
+    bins = np.arange(0, max_age, step_size)
+    labels = [f'{b}-{b+step_size}' for b in bins[:-1]]
+    adata.obs['age_bin'] = pd.cut(adata.obs['age'], bins=bins, labels=labels)
+    if return_labels:
+        return adata, labels
+    return adata
