@@ -114,7 +114,7 @@ def bin_age(adata, max_age=110, step_size=5, return_labels=False):
     """
     bins = np.arange(0, max_age, step_size)
     labels = [f'{b}-{b+step_size}' for b in bins[:-1]]
-    adata.obs['age_bin'] = pd.cut(adata.obs['age'], bins=bins, labels=labels)
+    adata.obs['bin_age'] = pd.cut(adata.obs['age'], bins=bins, labels=labels)
     if return_labels:
         return adata, labels
     return adata
