@@ -4,6 +4,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import scanpy as sc
 
 
 def pca_obs_corr(adata, obs_names, pca_key='X_pca', plot=False):
@@ -117,4 +118,24 @@ def bin_age(adata, max_age=110, step_size=5, return_labels=False):
     adata.obs['bin_age'] = pd.cut(adata.obs['age'], bins=bins, labels=labels)
     if return_labels:
         return adata, labels
+    return adata
+
+
+def lognorm(adata):
+    """Log normalize AnnData object.
+    
+    Parameters
+    ----------
+    adata : AnnData
+        AnnData object.
+
+    Returns
+    -------
+    AnnData
+        Log normalized AnnData object.
+    """
+    adata.layers['counts'] = adata.X.copy()
+    sc.pp.normalize_total(adata, target_sum=1e4)
+    sc.pp.log1p(adata)
+    adata.layers['lognorm'] = adata.X
     return adata
