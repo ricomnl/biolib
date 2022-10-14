@@ -121,13 +121,17 @@ def bin_age(adata, max_age=110, step_size=5, return_labels=False):
     return adata
 
 
-def lognorm(adata):
+def lognorm(adata, base=None, target_sum=None):
     """Log normalize AnnData object.
     
     Parameters
     ----------
     adata : AnnData
         AnnData object.
+    base : float, optional
+        Base to use for log normalization, by default None
+    target_sum : float, optional
+        Target sum to normalize to, by default None
 
     Returns
     -------
@@ -135,7 +139,7 @@ def lognorm(adata):
         Log normalized AnnData object.
     """
     adata.layers['counts'] = adata.X.copy()
-    sc.pp.normalize_total(adata, target_sum=1e4)
-    sc.pp.log1p(adata)
+    sc.pp.normalize_total(adata, target_sum=target_sum)
+    sc.pp.log1p(adata, base=base)
     adata.layers['lognorm'] = adata.X
     return adata
