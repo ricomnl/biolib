@@ -208,3 +208,4 @@ def bootstrap_adata(
     adata_boot = sc.AnnData(mtx, obs=obs_df, var=adata.var)
     adata_boot.layers[layer] = adata_boot.X
     return adata_boot
+
