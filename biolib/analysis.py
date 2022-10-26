@@ -209,3 +209,24 @@ def bootstrap_adata(
     adata_boot.layers[layer] = adata_boot.X
     return adata_boot
 
+
+def rank_genes_groups2df(markers):
+    """Convert `scanpy.api.tl.rank_genes_groups` output to 
+    a more tractable `pd.DataFrame`
+    Parameters
+    ----------
+    markers : dict
+        output from `scanpy.api.tl.rank_genes_groups`, as stored
+        in `anndata.uns[some_key_name]`.
+    Returns
+    -------
+    df : pd.DataFrame
+        ['gene', 'log2_fc', 'q_val']
+    """
+    dfs = []
+    for val in ['logfoldchanges', 'names', 'pvals', 'pvals_adj']:
+        dfs.append(pd.DataFrame(markers[val]).melt(var_name='group', value_name=val))
+    df = pd.concat([d.set_index('group') for d in dfs], axis=1)
+    df = df.rename({'pvals': 'pval', 'pvals_adj': 'pval_adj'}, axis=1)
+    df = df.reset_index().set_index('names')
+    return df
