@@ -145,64 +145,20 @@ def lognorm(adata, base=None, target_sum=None):
     return adata
 
 
-def split_dataframe(df, chunk_size=10000):
-    """Splits dataframe into chunks of size `chunk_size`
-    
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Dataframe to split.
-    chunk_size : int, optional
-        Size of chunks, by default 10000
-    
-    Returns
-    -------
-    list
-        List of dataframes.
-    """
-    chunks = list()
-    num_chunks = len(df) // chunk_size + 1
-    for i in range(num_chunks):
-        chunk_df = df[i*chunk_size:(i+1)*chunk_size]
-        if chunk_df.shape[0]>0:
-            chunks.append(chunk_df)
-    return chunks
-
-
 def bootstrap_adata(
     adata, 
-    cells_per_group=15,
+    n_samples=100,
+    sample_size=15,
     groupby=['donor', 'cell_type'], 
-    layer='counts'
+    layer='counts',
 ):
-    """Naive implementation of bootrapping cells without replacement.
-    Creates new AnnData object with cell groups of size `cells_per_group` that are summed together.
-
-    Parameters
-    ----------
-    adata : AnnData
-        AnnData object.
-    cells_per_group : int, optional
-        Number of cells to sum up per group, by default 15
-    groupby : list, optional
-        List of observations to group by, by default ['donor', 'cell_type']
-    layer : str, optional
-        Layer to use for summing, by default 'counts'
-    
-    Returns
-    -------
-    AnnData
-        Bootstrapped AnnData object.
-    """
     obs_elems = []
     mtx_elems = []
-    for group in adata.obs.groupby(groupby):
-        shuffled_group = group[1].sample(frac=1)
-        if shuffled_group.shape[0]>=cells_per_group:
-            split_groups = split_dataframe(shuffled_group, chunk_size=cells_per_group)
-            for g in split_groups:
-                mtx_elems.append(np.asarray(adata[g.index, :].layers[layer].sum(axis=0)))
-                obs_elems.append(g.iloc[0].to_dict())
+    for _,group in adata.obs.groupby(groupby):
+        for i in range(n_samples):
+            g = group.sample(n=sample_size)
+            mtx_elems.append(np.asarray(adata[g.index, :].layers[layer].sum(axis=0)))
+            obs_elems.append(g.iloc[0].to_dict())
     mtx = np.concatenate(mtx_elems)
     obs_df = pd.DataFrame(obs_elems)
     adata_boot = sc.AnnData(mtx, obs=obs_df, var=adata.var)
