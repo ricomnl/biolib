@@ -157,7 +157,10 @@ def bootstrap_adata(
     for _,group in adata.obs.groupby(groupby):
         for i in range(n_samples):
             g = group.sample(n=sample_size)
-            mtx_elems.append(np.asarray(adata[g.index, :].layers[layer].sum(axis=0)))
+            if layer == 'counts' and layer not in adata.layers:
+                mtx_elems.append(np.asarray(adata[g.index, :].X.sum(axis=0)))
+            else:
+                mtx_elems.append(np.asarray(adata[g.index, :].layers[layer].sum(axis=0)))
             obs_elems.append(g.iloc[0].to_dict())
     mtx = np.concatenate(mtx_elems)
     obs_df = pd.DataFrame(obs_elems)
