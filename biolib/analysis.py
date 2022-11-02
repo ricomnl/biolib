@@ -1,4 +1,5 @@
 import collections
+import multiprocessing
 import random
 
 import numpy as np
@@ -167,6 +168,41 @@ def bootstrap_adata(
     adata_boot = sc.AnnData(mtx, obs=obs_df, var=adata.var)
     adata_boot.layers[layer] = adata_boot.X
     return adata_boot
+
+
+def bootstrap_adata_parallel(
+    adata,
+    n_samples=100,
+    sample_size=15,
+    parallel_group_obs='donor',
+    groupby=['donor', 'cell_type'],
+    layer='counts',
+    n_cores=multiprocessing.cpu_count(),
+):
+    import ray
+    ray.init(ignore_reinit_error=True)
+
+    bootstrap_adata_remote = ray.remote(bootstrap_adata)
+
+    # get unique donors and separate list of obs into n_cores disjoint sets
+    unique_obs = list(adata.obs[parallel_group_obs].unique())
+    donor_chunks = filter(lambda arr: arr.shape[0]>0, np.array_split(unique_obs, n_cores))
+    
+    # subset your adata into smaller adatas with only the obs in chunk
+    adata_subsets = []
+    for chunk in donor_chunks:
+        adata_subsets.append(adata[adata.obs[parallel_group_obs].isin(chunk)].copy())
+
+    futures = []
+    for subset in adata_subsets:
+        futures.append(bootstrap_adata_remote.remote(
+            subset,
+            n_samples=n_samples, 
+            sample_size=sample_size, 
+            groupby=groupby,
+            layer=layer,
+        ))
+    return sc.concat(ray.get(futures))
 
 
 def rank_genes_groups2df(markers):
