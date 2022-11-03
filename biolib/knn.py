@@ -1,22 +1,27 @@
 import time
 from math import log, ceil
 
+import numpy as np
+from scipy.sparse import csr_matrix
+import scanpy as sc
 from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.decomposition import PCA
-import numpy as np
 
 
 def _median_normalize(X):
     """Performs median-normalization.
+    
     Parameters
     ----------
     X : numpy.ndarray
         A p-by-n expression matrix containing UMI counts for p genes and n
         cells.
+    
     Returns
     -------
     numpy.ndarray
         A p-by-n expression matrix containing the normalized UMI counts.
+    
     Notes
     -----
     We first determine the median total UMI count per cell, and then scale
@@ -37,11 +42,13 @@ def _freeman_tukey_transform(X):
     X : numpy.ndarray
         A n-by-p expression matrix containing UMI counts for n cells 
         and p genes (usually after median-normalization).
+    
     Returns
     -------
     numpy.ndarray
         A n-by-p expression matrix containing the Freeman-Tukey-transformed
         UMI counts.
+    
     Notes
     -----
     The Freeman-Tukey transformation serves to stabilize the variance of
@@ -53,16 +60,19 @@ def _freeman_tukey_transform(X):
 
 def _calculate_pc_scores(matrix, d, seed=0, verbose=False):
     """Projects the cells onto their first d principal components.
-    Input
+    
+    Parameters
     -----
     X: `numpy.ndarray`
         A n-by-p expression matrix containing the UMI counts for n cells
         and p genes.
+    
     Returns
     -------
     `numpy.ndarray`
         A n-by-d matrix containing the coordinates of n cells in d-dimensional
         principal component space.
+
     Notes
     -----
     We perform median-normalization and Freeman-Tukey-transformation to the UMI
@@ -96,11 +106,17 @@ def _calculate_pc_scores(matrix, d, seed=0, verbose=False):
 def _calculate_pairwise_distances(X, num_jobs=1):
     """Calculates the distances between all cells in X.
     
-    Input: numpy.ndarray
+    Parameters
+    -----
+    X: numpy.ndarray
         A n-by-d matrix containing the coordinates of n cells in d-dimensional
         space.
-    Output: numpy.ndarray
-        A n-by-n matrix containing all pairwise distances between the cells.
+    
+    Returns
+    -------
+    numpy.ndarray
+        A n-by-n matrix containing the pairwise distances between all cells.
+    
     Notes
     -----
     This uses the Euclidean metric.
@@ -115,6 +131,7 @@ def knn_smoothing(X, k, d=10, dither=0.03, seed=0, verbose=False):
     This function implements an improved version of the kNN-smoothing 2
     algorithm by Wagner et al.
     (https://www.biorxiv.org/content/early/2018/04/09/217737).
+    
     Parameters
     ----------
     X : numpy.ndarray
@@ -135,6 +152,7 @@ def knn_smoothing(X, k, d=10, dither=0.03, seed=0, verbose=False):
         Default: 0.
     verbose : bool, optional
         If True, print progress information. Default: False.
+    
     Returns
     -------
     numpy.ndarray
@@ -150,7 +168,6 @@ def knn_smoothing(X, k, d=10, dither=0.03, seed=0, verbose=False):
         If k is invalid (k < 1, or k >= n).
         If d is invalid (d < 1 or d > # principal components).
     """
-    
     np.random.seed(seed)
 
     if not (X.dtype == np.float64 or X.dtype == np.float32):
@@ -197,10 +214,14 @@ def knn_smoothing(X, k, d=10, dither=0.03, seed=0, verbose=False):
         
         t0 = time.time()
         A = np.argsort(D, axis=1, kind='mergesort')
+        t1 = time.time()
+        if verbose:
+            print('\tRunning argsort took %.1f s.' % (t1-t0))
+        
+        t0 = time.time()
         for j in range(X.shape[0]):
             ind = A[j, :k_step]
             S[j, :] = np.sum(X[ind, :], axis=0)
-
         t1 = time.time()
         if verbose:
             print('\tCalculating the smoothed expression matrix took %.1f s.' % (t1-t0))
@@ -211,10 +232,60 @@ def knn_smoothing(X, k, d=10, dither=0.03, seed=0, verbose=False):
 
     return S
 
+
+def knn_smooth_adata(
+    adata,
+    groupby=['donor'],
+    k=16,
+    n_components=20,
+    dither=0.03,
+    random_state=42,
+):
+    """Wrapper for NN-smoothing for use with AnnData objects.
+    
+    Parameters
+    ----------
+    adata : AnnData
+        An AnnData object containing the expression matrix in adata.X.
+    groupby : str or list of str, optional
+        The key(s) of the observations grouping to consider. Default: ['donor'].
+    k : int, optional
+        The number of neighbors to use for smoothing. Default: 16.
+    n_components : int, optional
+        The number of principal components to use for identifying neighbors.
+        Default: 20.
+    dither : float, optional
+        Amount of dither to apply to the partially smoothed and PCA-transformed
+        data in each step. Specified as the fraction of the range of the
+        cell scores for each PC. Default: 0.03.
+    random_state : int, optional
+        The seed for initializing the pseudo-random number generator used by
+        the randomized PCA algorithm. This usually does not need to be changed.
+        Default: 42.
+
+    Returns
+    -------
+    AnnData
+        An AnnData object containing the smoothed expression matrix in adata.X.
+    """
+    adatas = []
+    for _, subset_df in adata.obs.groupby(groupby):
+        adata_sub = adata[subset_df.index, :].copy()
+        sc.pp.filter_genes(adata_sub, min_cells=1)
+        sc.pp.filter_cells(adata_sub, min_genes=1)
+        S = knn_smoothing(adata_sub.X.toarray(), k=k, d=n_components, dither=dither, seed=random_state)
+        adata_sub.X = csr_matrix(S)
+        adatas.append(adata_sub)
+    adata_knn = sc.concat(adatas, join='outer', merge='first')
+    return adata_knn
+
+
 # if __name__ == '__main__':
 #     import scanpy as sc
+#     import cellrank as cr
 
-#     adata = sc.datasets.paul15()
+#     adata = cr.datasets.reprogramming_schiebinger()
+#     sc.pp.subsample(adata, fraction=0.1)
 #     sc.pp.filter_genes(adata, min_cells=10)
 #     sc.pp.filter_cells(adata, min_genes=100)
-#     S = knn_smoothing(adata.X, k=16, d=10, dither=0, seed=42, verbose=True)
+#     S = knn_smoothing(adata.X.toarray(), k=2, d=10, dither=0, seed=42, verbose=True)

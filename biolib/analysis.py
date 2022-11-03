@@ -122,7 +122,7 @@ def bin_age(adata, max_age=110, step_size=5, return_labels=False):
     return adata
 
 
-def lognorm(adata, base=None, target_sum=None):
+def lognorm(adata, base=None, target_sum=None, save_counts=True):
     """Log normalize AnnData object.
     
     Parameters
@@ -133,16 +133,20 @@ def lognorm(adata, base=None, target_sum=None):
         Base to use for log normalization, by default None
     target_sum : float, optional
         Target sum to normalize to, by default None
+    save_counts : bool, optional
+        Whether to save counts to `counts` layer, by default True
 
     Returns
     -------
     AnnData
         Log normalized AnnData object.
     """
-    adata.layers['counts'] = adata.X.copy()
+    if save_counts:
+        adata.layers['counts'] = adata.X.copy()
     sc.pp.normalize_total(adata, target_sum=target_sum)
     sc.pp.log1p(adata, base=base)
-    adata.layers['lognorm'] = adata.X
+    if save_counts:
+        adata.layers['lognorm'] = adata.X
     return adata
 
 
@@ -153,6 +157,26 @@ def bootstrap_adata(
     groupby=['donor', 'cell_type'], 
     layer='counts',
 ):
+    """Bootstrap AnnData object.
+
+    Parameters
+    ----------
+    adata : AnnData
+        AnnData object.
+    n_samples : int, optional
+        Number of samples to take, by default 100
+    sample_size : int, optional
+        Size of samples to take, by default 15
+    groupby : list, optional
+        List of observations to group by, by default ['donor', 'cell_type']
+    layer : str, optional
+        AnnData layer to use, by default 'counts'
+    
+    Returns
+    -------
+    adata : AnnData
+        AnnData object with bootstrapped samples.
+    """
     obs_elems = []
     mtx_elems = []
     for _,group in adata.obs.groupby(groupby):
@@ -179,6 +203,30 @@ def bootstrap_adata_parallel(
     layer='counts',
     n_cores=multiprocessing.cpu_count(),
 ):
+    """Bootstrap AnnData object in parallel.
+
+    Parameters
+    ----------
+    adata : AnnData
+        AnnData object.
+    n_samples : int, optional
+        Number of samples to take, by default 100
+    sample_size : int, optional
+        Size of samples to take, by default 15
+    parallel_group_obs : str, optional
+        Observation to group by for parallelization, by default 'donor'
+    groupby : list, optional
+        List of observations to group by, by default ['donor', 'cell_type']
+    layer : str, optional
+        AnnData layer to use, by default 'counts'
+    n_cores : int, optional
+        Number of cores to use, by default multiprocessing.cpu_count()
+    
+    Returns
+    -------
+    adata : AnnData
+        AnnData object with bootstrapped samples.
+    """
     import ray
     ray.init(ignore_reinit_error=True)
 
@@ -203,25 +251,3 @@ def bootstrap_adata_parallel(
             layer=layer,
         ))
     return sc.concat(ray.get(futures))
-
-
-def rank_genes_groups2df(markers):
-    """Convert `scanpy.api.tl.rank_genes_groups` output to 
-    a more tractable `pd.DataFrame`
-    Parameters
-    ----------
-    markers : dict
-        output from `scanpy.api.tl.rank_genes_groups`, as stored
-        in `anndata.uns[some_key_name]`.
-    Returns
-    -------
-    df : pd.DataFrame
-        ['gene', 'log2_fc', 'q_val']
-    """
-    dfs = []
-    for val in ['logfoldchanges', 'names', 'pvals', 'pvals_adj']:
-        dfs.append(pd.DataFrame(markers[val]).melt(var_name='group', value_name=val))
-    df = pd.concat([d.set_index('group') for d in dfs], axis=1)
-    df = df.rename({'pvals': 'pval', 'pvals_adj': 'pval_adj'}, axis=1)
-    df = df.reset_index().set_index('names')
-    return df
