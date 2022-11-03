@@ -180,8 +180,11 @@ def bootstrap_adata(
     obs_elems = []
     mtx_elems = []
     for _,group in adata.obs.groupby(groupby):
-        for i in range(n_samples):
-            g = group.sample(n=sample_size)
+        for _ in range(n_samples):
+            if sample_size >= group.shape[0]:
+                g = group.sample(n=sample_size, replace=True)
+            else:
+                g = group.sample(n=sample_size)
             if layer == 'counts' and layer not in adata.layers:
                 mtx_elems.append(np.asarray(adata[g.index, :].X.sum(axis=0)))
             else:
