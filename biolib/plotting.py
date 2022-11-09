@@ -30,7 +30,7 @@ def prediction_boxplot(
             boxprops={"color" : "black"},
             notch = True
         )
-    df_sample = pred_df.sample(n_samples_reg)
+    df_sample = pred_df.sample(n=min(y_true.shape[0], n_samples_reg))
     sns.regplot(
         x=df_sample["age"],
         y=df_sample["pred_age"],
