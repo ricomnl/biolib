@@ -58,3 +58,4 @@ def prediction_boxplot(
                  fontweight="bold", fontsize=8)
     if title is not None:
         plt.title(title, fontweight="bold", fontsize=18, y=1.05)
+    return fig
