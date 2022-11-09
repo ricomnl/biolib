@@ -6,7 +6,7 @@ import seaborn as sns
 from sklearn import metrics
 
 
-def plot_prediction_boxplot(
+def prediction_boxplot(
     pred_df=None,
     y_true=None,
     y_pred=None,
