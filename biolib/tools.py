@@ -209,6 +209,7 @@ def bootstrap_adata_parallel(
     sample_size=15,
     parallel_group_obs='donor',
     groupby=['donor', 'cell_type'],
+    include_barcodes=False,
     layer='counts',
     n_cores=multiprocessing.cpu_count(),
 ):
@@ -226,6 +227,8 @@ def bootstrap_adata_parallel(
         Observation to group by for parallelization, by default 'donor'
     groupby : list, optional
         List of observations to group by, by default ['donor', 'cell_type']
+    include_barcodes : bool, optional
+        Whether to include barcodes in obs, by default False
     layer : str, optional
         AnnData layer to use, by default 'counts'
     n_cores : int, optional
@@ -257,6 +260,7 @@ def bootstrap_adata_parallel(
             n_samples=n_samples, 
             sample_size=sample_size, 
             groupby=groupby,
+            include_barcodes=include_barcodes,
             layer=layer,
         ))
     return sc.concat(ray.get(futures))
