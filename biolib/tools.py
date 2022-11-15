@@ -156,6 +156,7 @@ def bootstrap_adata(
     sample_size=15,
     groupby=['donor', 'cell_type'], 
     layer='counts',
+    include_barcodes=False,
 ):
     """Bootstrap AnnData object.
 
@@ -171,6 +172,8 @@ def bootstrap_adata(
         List of observations to group by, by default ['donor', 'cell_type']
     layer : str, optional
         AnnData layer to use, by default 'counts'
+    include_barcodes : bool, optional
+        Whether to include barcodes in obs, by default False
     
     Returns
     -------
@@ -189,7 +192,10 @@ def bootstrap_adata(
                 mtx_elems.append(np.asarray(adata[g.index, :].X.sum(axis=0)))
             else:
                 mtx_elems.append(np.asarray(adata[g.index, :].layers[layer].sum(axis=0)))
-            obs_elems.append(g.iloc[0].to_dict())
+            meta = g.iloc[0].to_dict()
+            if include_barcodes:
+                meta['barcodes'] = ','.join(g.index.to_list())
+            obs_elems.append(meta)
     mtx = np.concatenate(mtx_elems)
     obs_df = pd.DataFrame(obs_elems)
     adata_boot = sc.AnnData(mtx, obs=obs_df, var=adata.var)
