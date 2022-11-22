@@ -264,3 +264,47 @@ def bootstrap_adata_parallel(
             layer=layer,
         ))
     return sc.concat(ray.get(futures))
+
+
+def transform_age(arr, adult_age=20):
+    """Horvath's transform age function.
+
+    Parameters
+    ----------
+    arr : array
+        Ages to transform
+    adult_age : int, optional
+        Adult age, by default 20
+
+    Returns
+    -------
+    array
+        Transformed ages
+    """
+    return np.where(
+        arr<=adult_age,
+        np.log2(arr+1)-np.log2(adult_age+1),
+        (arr-adult_age)/(adult_age+1),
+    )
+
+
+def rev_transform_age(arr, adult_age=20):
+    """Horvath's reverse transform age function.
+
+    Parameters
+    ----------
+    arr : array
+        Ages to reverse transform
+    adult_age : int, optional
+        Adult age, by default 20
+
+    Returns
+    -------
+    array
+        Reversed transformed ages
+    """
+    return np.where(
+        arr<0,
+        (1+adult_age)*(2**arr)-1,
+        (1+adult_age)*arr+adult_age,
+    )
