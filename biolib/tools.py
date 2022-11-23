@@ -527,7 +527,9 @@ def gen_metacells(
     groupby=['donor'], 
     n_neighbors=5,
     gamma=20,
-    use_rep='X_pca'
+    use_rep='X_pca',
+    include_barcodes=False,
+    agg='sum',
 ):
     """Generate metacells from adata.
     
@@ -545,6 +547,10 @@ def gen_metacells(
         By default None (uses optimal cutoff). By default 20
     use_rep : str, optional
         Representation to use, by default 'X_pca'
+    include_barcodes : bool, optional
+        Whether to include barcodes in the metacell, by default False
+    agg : str, optional
+        Aggregation method, by default 'sum'
     
     Returns
     -------
@@ -556,7 +562,9 @@ def gen_metacells(
         adata_sub = adata[group.index]
         sc.pp.neighbors(adata_sub, n_neighbors=n_neighbors, use_rep=use_rep)
         walktrap(adata_sub, gamma=gamma)
-        adatas.append(aggregate_groups(adata_sub, groupby='walktrap'))    
+        adatas.append(
+            aggregate_groups(adata_sub, groupby='walktrap', include_barcodes=include_barcodes, agg=agg)
+        )
     return sc.concat(adatas, merge='same', join='outer')
 
 
@@ -567,7 +575,9 @@ def gen_metacells_parallel(
     n_neighbors=5, 
     gamma=20,
     use_rep='X_pca',
-    n_cores=64,
+    include_barcodes=False,
+    agg='sum',
+    n_cores=multiprocessing.cpu_count(),
 ):
     """Generate metacells from adata in parallel.
 
@@ -587,6 +597,10 @@ def gen_metacells_parallel(
         By default None (uses optimal cutoff). By default 20
     use_rep : str, optional
         Representation to use, by default 'X_pca'
+    include_barcodes : bool, optional
+        Whether to include barcodes in the metacell, by default False
+    agg : str, optional
+        Aggregation method, by default 'sum'
     n_cores : int, optional
         Number of cores to use, by default 64
     
@@ -617,5 +631,7 @@ def gen_metacells_parallel(
             n_neighbors=n_neighbors, 
             gamma=gamma,
             use_rep=use_rep,
+            include_barcodes=include_barcodes,
+            agg=agg,
         ))
     return sc.concat(ray.get(futures))
