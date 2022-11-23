@@ -127,7 +127,7 @@ def bin_age(adata, max_age=110, step_size=5, return_labels=False):
     return adata
 
 
-def lognorm(adata, base=None, target_sum=None, save_counts=True):
+def lognorm(adata, base=None, target_sum=None, save_counts=True, copy=False):
     """Log normalize AnnData object.
     
     Parameters
@@ -140,19 +140,72 @@ def lognorm(adata, base=None, target_sum=None, save_counts=True):
         Target sum to normalize to, by default None
     save_counts : bool, optional
         Whether to save counts to `counts` layer, by default True
+    copy : bool, optional
+        Whether to return a copy of the AnnData object, by default False
 
     Returns
     -------
     AnnData
         Log normalized AnnData object.
     """
+    adata = adata.copy() if copy else adata
     if save_counts:
         adata.layers['counts'] = adata.X.copy()
     sc.pp.normalize_total(adata, target_sum=target_sum)
     sc.pp.log1p(adata, base=base)
     if save_counts:
         adata.layers['lognorm'] = adata.X
-    return adata
+    return adata if copy else None
+
+
+def aggregate_groups(
+    adata,
+    groupby,
+    layer='counts',
+    include_barcodes=False,
+    agg='sum'
+):
+    """Aggregate counts by group.
+
+    Parameters
+    ----------
+    adata : AnnData
+        AnnData object.
+    groupby : str
+        Name of observation to group by.
+    layer : str, optional   
+        AnnData layer to aggregate, by default 'counts'
+    include_barcodes : bool, optional
+        Whether to include barcodes in the output, by default False
+    agg : str, optional
+        Aggregation method, by default 'sum'
+    
+    Returns
+    -------
+    AnnData
+        Aggregated counts.
+    """
+    agg_methods = {
+        "sum": np.sum,
+        "mean": np.mean,
+    }
+    
+    obs_elems = []
+    mtx_elems = []
+    for _,group in adata.obs.groupby(groupby):
+        if layer == 'counts' and layer not in adata.layers:
+            mtx_elems.append(np.asarray(agg_methods[agg](adata[group.index, :].X, axis=0)))
+        else:
+            mtx_elems.append(np.asarray(agg_methods[agg](adata[group.index, :].layers[layer], axis=0)))
+        meta = group.iloc[0].to_dict()
+        meta['cells_per_metacell'] = group.shape[0]
+        if include_barcodes:
+            meta['barcodes'] = ','.join(group.index.to_list())
+        obs_elems.append(meta)
+    mtx = np.concatenate(mtx_elems)
+    obs_df = pd.DataFrame(obs_elems)
+    adata_meta = sc.AnnData(mtx, obs=obs_df, var=adata.var)
+    return adata_meta
 
 
 def bootstrap_adata(
@@ -185,6 +238,7 @@ def bootstrap_adata(
     adata : AnnData
         AnnData object with bootstrapped samples.
     """
+    # TODO: unify with aggregate_groups
     obs_elems = []
     mtx_elems = []
     for _,group in adata.obs.groupby(groupby):
@@ -421,3 +475,147 @@ def walktrap(
         ),
     )
     return adata if copy else None
+
+
+def metacell_pca(
+    adata,
+    n_comps=10,
+    mode='highly_variable',
+    n_top_genes=3000,
+    copy=False
+):
+    """Perform PCA for metacell construction.
+
+    Parameters
+    ----------
+    adata : AnnData
+        Annotated data matrix.
+    n_comps : int, optional
+        Number of components to compute, by default 10
+    mode : ['highly_variable', 'freeman_tukey'], optional
+        How to select genes for PCA, by default 'highly_variable'
+    n_top_genes : int, optional
+        Number of top genes to use, by default 3000
+    copy : bool, optional
+        Whether to copy adata, by default False
+    
+    Returns
+    -------
+    AnnData
+        Annotated data matrix.
+    """
+    adata = adata.copy() if copy else adata
+    if mode == 'highly_variable':
+        lognorm(adata)
+        sc.pp.highly_variable_genes(adata, n_top_genes=n_top_genes)
+        sc.tl.pca(adata, n_comps=n_comps, use_highly_variable=True)
+    elif mode == 'freeman_tukey':
+        # median-normalize
+        num_transcripts = np.asarray(np.sum(adata.X, axis=1))[:, 0]
+        X = ((np.median(num_transcripts) / num_transcripts).reshape(-1,1)) * adata.X.toarray()
+        # freeman-tukey transform
+        adata.X = np.sqrt(X) + np.sqrt(X+1)
+        sc.tl.pca(adata, n_comps=n_comps)
+    else:
+        adata = lognorm(adata)
+        sc.tl.pca(adata, n_comps=n_comps)
+    return adata if copy else None
+
+
+def gen_metacells(
+    adata, 
+    groupby=['donor'], 
+    n_neighbors=5,
+    gamma=20,
+    use_rep='X_pca'
+):
+    """Generate metacells from adata.
+    
+    Parameters
+    ----------
+    adata : AnnData
+        Annotated data matrix.
+    groupby : list, optional
+        Groupby list, by default ['donor']
+    n_neighbors : int, optional
+        Number of neighbors, by default 5
+    gamma : int, optional
+        The graining level of data (proportion of number of single cells 
+        in the initial dataset to the number of metacells in the final dataset).
+        By default None (uses optimal cutoff). By default 20
+    use_rep : str, optional
+        Representation to use, by default 'X_pca'
+    
+    Returns
+    -------
+    AnnData
+        Annotated data matrix.
+    """
+    adatas = []
+    for _,group in adata.obs.groupby(groupby):
+        adata_sub = adata[group.index]
+        sc.pp.neighbors(adata_sub, n_neighbors=n_neighbors, use_rep=use_rep)
+        walktrap(adata_sub, gamma=gamma)
+        adatas.append(aggregate_groups(adata_sub, groupby='walktrap'))    
+    return sc.concat(adatas, merge='same', join='outer')
+
+
+def gen_metacells_parallel(
+    adata,
+    parallel_group_obs='donor',
+    groupby=['donor'], 
+    n_neighbors=5, 
+    gamma=20,
+    use_rep='X_pca',
+    n_cores=64,
+):
+    """Generate metacells from adata in parallel.
+
+    Parameters
+    ----------
+    adata : AnnData
+        Annotated data matrix.
+    parallel_group_obs : str, optional
+        Observation to use for parallelization, by default 'donor'
+    groupby : list, optional
+        Groupby list, by default ['donor']
+    n_neighbors : int, optional
+        Number of neighbors, by default 5
+    gamma : int, optional
+        The graining level of data (proportion of number of single cells 
+        in the initial dataset to the number of metacells in the final dataset).
+        By default None (uses optimal cutoff). By default 20
+    use_rep : str, optional
+        Representation to use, by default 'X_pca'
+    n_cores : int, optional
+        Number of cores to use, by default 64
+    
+    Returns
+    -------
+    AnnData
+        Annotated data matrix.
+    """
+    import ray
+    ray.init(ignore_reinit_error=True)
+
+    gen_metacells_remote = ray.remote(gen_metacells)
+
+    # get unique donors and separate list of obs into n_cores disjoint sets
+    unique_obs = list(adata.obs[parallel_group_obs].unique())
+    donor_chunks = filter(lambda arr: arr.shape[0]>0, np.array_split(unique_obs, n_cores))
+
+    # subset your adata into smaller adatas with only the obs in chunk
+    adata_subsets = []
+    for chunk in donor_chunks:
+        adata_subsets.append(adata[adata.obs[parallel_group_obs].isin(chunk)].copy())
+
+    futures = []
+    for subset in adata_subsets:
+        futures.append(gen_metacells_remote.remote(
+            subset,
+            groupby=groupby, 
+            n_neighbors=n_neighbors, 
+            gamma=gamma,
+            use_rep=use_rep,
+        ))
+    return sc.concat(ray.get(futures))
