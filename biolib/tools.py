@@ -194,9 +194,9 @@ def aggregate_groups(
     mtx_elems = []
     for _,group in adata.obs.groupby(groupby):
         if layer == 'counts' and layer not in adata.layers:
-            mtx_elems.append(np.asarray(agg_methods[agg](adata[group.index, :].X, axis=0)))
+            mtx_elems.append(np.asarray(agg_methods[agg](adata[group.index, :].X, axis=0)).reshape(1,-1))
         else:
-            mtx_elems.append(np.asarray(agg_methods[agg](adata[group.index, :].layers[layer], axis=0)))
+            mtx_elems.append(np.asarray(agg_methods[agg](adata[group.index, :].layers[layer], axis=0)).reshape(1,-1))
         meta = group.iloc[0].to_dict()
         meta['cells_per_metacell'] = group.shape[0]
         if include_barcodes:
