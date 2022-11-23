@@ -1,11 +1,16 @@
 import collections
 import multiprocessing
 import random
+from typing import Optional
 
+from anndata import AnnData
 import numpy as np
 import matplotlib.pyplot as plt
+from natsort import natsorted
 import pandas as pd
 import scanpy as sc
+from scanpy import logging as logg
+from scipy import sparse
 
 
 def pca_obs_corr(adata, obs_names, pca_key='X_pca', plot=False):
@@ -308,3 +313,111 @@ def rev_transform_age(arr, adult_age=20):
         (1+adult_age)*(2**arr)-1,
         (1+adult_age)*arr+adult_age,
     )
+
+
+def walktrap(
+    adata: AnnData,
+    gamma: float = None,
+    *,
+    key_added: str = 'walktrap',
+    adjacency: Optional[sparse.spmatrix] = None,
+    directed: bool = True,
+    use_weights: bool = True,
+    steps: int = 4,
+    neighbors_key: Optional[str] = None,
+    obsp: Optional[str] = None,
+    copy: bool = False,
+    **partition_kwargs,
+) -> Optional[AnnData]:
+    """\
+    Computing communities in large networks using random walks, https://arxiv.org/abs/physics/0512106.
+
+    This requires having ran :func:`~scanpy.pp.neighbors` first.
+
+    Parameters
+    ----------
+    adata
+        The annotated data matrix.
+    gamma
+        The graining level of data (proportion of number of single cells 
+        in the initial dataset to the number of metacells in the final dataset).
+        By default None (uses optimal cutoff).
+    key_added
+        `adata.obs` key under which to add the cluster labels.
+    adjacency
+        Sparse adjacency matrix of the graph, defaults to neighbors connectivities.
+    directed
+        Whether to treat the graph as directed or undirected.
+    use_weights
+        If `True`, edge weights from the graph are used in the computation
+        (placing more emphasis on stronger edges).
+    steps   	
+        Integer constant, the length of the random walks. 
+        Typically, good results are obtained with values between 
+        3-8 with 4-5 being a reasonable default.
+    neighbors_key
+        Use neighbors connectivities as adjacency.
+        If not specified, leiden looks .obsp['connectivities'] for connectivities
+        (default storage place for pp.neighbors).
+        If specified, leiden looks
+        .obsp[.uns[neighbors_key]['connectivities_key']] for connectivities.
+    obsp
+        Use .obsp[obsp] as adjacency. You can't specify both
+        `obsp` and `neighbors_key` at the same time.
+    copy
+        Whether to copy `adata` or modify it inplace.
+    **partition_kwargs
+        Any further arguments to pass to `~leidenalg.find_partition`
+        (which in turn passes arguments to the `partition_type`).
+
+    Returns
+    -------
+    `adata.obs[key_added]`
+        Array of dim (number of samples) that stores the subgroup id
+        (`'0'`, `'1'`, ...) for each cell.
+    `adata.uns['walktrap']['params']`
+        A dict with the values for the parameters `gamma`, `steps`,
+        and `n_clusters`.
+    """    
+    partition_kwargs = dict(partition_kwargs)
+
+    start = logg.info('running Walktrap clustering')
+    adata = adata.copy() if copy else adata
+    
+    # number of clusters if gamma is not None
+    n_clusters = round(adata.shape[0]/gamma) if gamma else None
+
+    # are we clustering a user-provided graph or the default AnnData one?
+    if adjacency is None:
+        adjacency = sc._utils._choose_graph(adata, obsp, neighbors_key)
+
+    # convert it to igraph
+    g = sc._utils.get_igraph_from_adjacency(adjacency, directed=directed)
+    if use_weights:
+        partition_kwargs['weights'] = np.array(g.es['weight']).astype(np.float64)
+    partition_kwargs['steps'] = steps
+    
+    # clustering proper
+    part = g.community_walktrap(**partition_kwargs)
+    # store output into adata.obs
+    groups = np.array(part.as_clustering(n=n_clusters).membership)
+    adata.obs[key_added] = pd.Categorical(
+        values=groups.astype('U'),
+        categories=natsorted(map(str, np.unique(groups))),
+    )
+    # store information on the clustering parameters
+    adata.uns['walktrap'] = {}
+    adata.uns['walktrap']['params'] = dict(
+        gamma=gamma,
+        steps=steps,
+        n_clusters=n_clusters,
+    )
+    logg.info(
+        '    finished',
+        time=start,
+        deep=(
+            f'found {len(np.unique(groups))} clusters and added\n'
+            f'    {key_added!r}, the cluster labels (adata.obs, categorical)'
+        ),
+    )
+    return adata if copy else None
