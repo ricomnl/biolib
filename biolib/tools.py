@@ -560,6 +560,8 @@ def gen_metacells(
     adatas = []
     for _,group in adata.obs.groupby(groupby):
         adata_sub = adata[group.index]
+        if adata_sub.shape[0] < n_neighbors:
+            continue
         sc.pp.neighbors(adata_sub, n_neighbors=n_neighbors, use_rep=use_rep)
         walktrap(adata_sub, gamma=gamma)
         adatas.append(
