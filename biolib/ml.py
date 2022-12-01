@@ -15,7 +15,7 @@ def get_wr_sampler(y):
     return WeightedRandomSampler(weights=weights, num_samples=len(weights))
 
 
-class CustomDataset(Dataset):
+class SCDataset(Dataset):
     def __init__(
         self, 
         X_data, 
