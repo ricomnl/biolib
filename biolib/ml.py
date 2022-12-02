@@ -1,7 +1,12 @@
+from abc import ABC, abstractmethod
+
 import numpy as np
+import pytorch_lightning as pl
 from sklearn import model_selection
+from sklearn import metrics
 import scipy
 import torch
+from torch import nn
 from torch.utils.data import Dataset, Subset, DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 
@@ -125,3 +130,127 @@ class SCDataset(Dataset):
             shuffle=False,
             pin_memory=self.pin_memory,
         )
+
+
+class LightningModule(pl.LightningModule):
+    def __init__(
+        self, 
+        model,
+        learning_rate=1e-4,
+        weight_decay=0,
+        optimizer=None,
+        lr_scheduler=None,
+        criterion=None,
+        **kwargs
+    ):
+        super().__init__()
+        self.save_hyperparameters()
+        
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+
+        if optimizer is None:
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        self.lr_scheduler = lr_scheduler
+        self.optimizer = optimizer
+        
+        self.model = model
+        self.criterion = criterion
+        
+    def forward(self, x):
+        return self.model(x)
+
+    def configure_optimizers(self):
+        return [self.optimizer], [self.lr_scheduler]
+
+    @abstractmethod
+    def _calculate_loss(self, batch, mode="train"):
+        pass
+
+    def training_step(self, batch, batch_idx):
+        loss = self._calculate_loss(batch, mode="train")
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        self._calculate_loss(batch, mode="val")
+
+    def test_step(self, batch, batch_idx):
+        self._calculate_loss(batch, mode="test")
+
+
+class LightningClassifier(LightningModule):
+
+    def __init__(
+        self,
+        model,
+        learning_rate=1e-4,
+        weight_decay=0,
+        optimizer=None,
+        lr_scheduler=None,
+        criterion=None,
+        **kwargs
+    ):
+        if criterion is None:
+            criterion = nn.CrossEntropyLoss()
+        super().__init__(
+            model,
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            criterion=criterion,
+            **kwargs
+        )
+        self.save_hyperparameters()
+
+    def _calculate_loss(self, batch, mode="train"):
+        x, y = batch
+        y_pred = self(x)
+        loss = self.criterion(y, y_pred)
+        y = y.argmax(dim=-1)
+        acc = (y == y_pred).float().mean()
+        f1 = metrics.f1_score(y.detach().cpu(), y_pred.detach().cpu(), average='macro')
+
+        self.log(f'{mode}_loss', loss)
+        self.log(f'{mode}_acc', acc)
+        self.log(f'{mode}_f1_macro', f1)
+        return loss
+
+
+class LightningRegressor(LightningModule):
+
+    def __init__(
+        self,
+        model,
+        learning_rate=1e-4,
+        weight_decay=0,
+        optimizer=None,
+        lr_scheduler=None,
+        criterion=None,
+        **kwargs
+    ):
+        if criterion is None:
+            criterion = nn.MSELoss()
+        super().__init__(
+            model,
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            criterion=criterion,
+            **kwargs
+        )
+        self.save_hyperparameters()
+
+    def _calculate_loss(self, batch, mode="train"):
+        x, y = batch
+        y_pred = self(x)
+        loss = self.criterion(y, y_pred)
+        rmse = np.sqrt(metrics.mean_squared_error(y.detach().cpu(), y_pred.detach().cpu()))
+        mae = metrics.mean_absolute_error(y.detach().cpu(), y_pred.detach().cpu())
+        pearsonr = scipy.stats.pearsonr(y.detach().cpu(), y_pred.detach().cpu())[0]
+        self.log(f'{mode}_loss', loss)
+        self.log(f'{mode}_rmse', rmse)
+        self.log(f'{mode}_mae', mae)
+        self.log(f'{mode}_pearsonr', pearsonr)
+        return loss

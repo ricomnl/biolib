@@ -1,2 +1,4 @@
 scikit-learn
 scanpy
+torch
+pytorch_lightning
