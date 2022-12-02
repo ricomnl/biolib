@@ -25,7 +25,7 @@ class SCDataset(Dataset):
         self, 
         X_data, 
         y_data, 
-        groups, 
+        groups=None,
         test_split=0.1,
         batch_size=256,
         pin_memory=True,
@@ -91,12 +91,20 @@ class SCDataset(Dataset):
             cv = model_selection.StratifiedGroupKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
         elif type == 'group_kfold':
             cv = model_selection.GroupKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+        elif type == 'stratified_kfold':
+            cv = model_selection.StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+        elif type == 'kfold':
+            cv = model_selection.KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
         else:
             raise ValueError('Invalid type')
         
         X_train = self.X_data[self.train_subset.indices]
         y_train = self.y_data[self.train_subset.indices]
-        groups_train = self.groups[self.train_subset.indices]
+        if 'group' in type:
+            assert self.groups is not None, 'Groups must be provided for group splits'
+            groups_train = self.groups[self.train_subset.indices]
+        else:
+            groups_train = None
         for _, (train_index, val_index) in enumerate(
             cv.split(X_train, y_train, groups_train)
         ):
