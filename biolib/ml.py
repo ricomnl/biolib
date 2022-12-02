@@ -57,7 +57,7 @@ class SCDataset(Dataset):
 
     def setup_subsets(self, test_split=0.1, random_state=42):
         if test_split is None:
-            self.train_subset = self
+            self.train_subset = Subset(self, np.arange(len(self)))
             return
         test_splitter = model_selection.GroupShuffleSplit(n_splits=1, train_size=1-test_split, random_state=random_state)
 
