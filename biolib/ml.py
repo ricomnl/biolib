@@ -147,7 +147,7 @@ class LightningModule(pl.LightningModule):
         model,
         learning_rate=1e-4,
         weight_decay=0,
-        optimizer_cls=None,
+        optimizer_cls=torch.optim.Adam,
         lr_scheduler_cls=None,
         criterion=None,
         **kwargs
