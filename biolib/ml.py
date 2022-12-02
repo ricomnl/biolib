@@ -1,4 +1,5 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+from collections import OrderedDict
 
 import numpy as np
 import pytorch_lightning as pl
@@ -262,3 +263,63 @@ class LightningRegressor(LightningModule):
         self.log(f'{mode}_mae', mae)
         self.log(f'{mode}_pearsonr', pearsonr)
         return loss
+
+
+class Classifier(nn.Module):
+    def __init__(
+        self, 
+        n_in,
+        n_out=2,
+        hidden=[128],
+        dropout_rate=0.1,
+        logits=False,
+        use_batch_norm=True,
+        bias=False,
+        activation_fn="relu",
+    ):
+        super(Classifier, self).__init__()
+
+        self.activation_fn = activation_fn
+        if activation_fn == "relu":
+            self.activation_fn_ = nn.ReLU()
+        elif activation_fn == "leaky_relu":
+            self.activation_fn_ = nn.LeakyReLU()
+        elif activation_fn == "tanh":
+            self.activation_fn_ = nn.Tanh()
+        elif activation_fn == "sigmoid":
+            self.activation_fn_ = nn.Sigmoid()
+        else:
+            self.activation_fn_ = None
+
+        hidden = [n_in]+hidden
+        self.fc_layers = nn.Sequential(
+            OrderedDict([
+                (
+                    f"Layer {i}",
+                    nn.Sequential(
+                        nn.Linear(n_in, n_out, bias=bias),
+                        nn.BatchNorm1d(n_out)
+                        if use_batch_norm
+                        else None,
+                        self.activation_fn_,
+                        nn.Dropout(p=dropout_rate) if dropout_rate > 0 else None,
+                    ),
+                )
+                for i, (n_in, n_out) in enumerate(
+                    zip(hidden, hidden[1:])
+                )
+            ])
+        )
+        out_layers = [
+            nn.Linear(hidden[-1], n_out)
+        ]
+        if not logits:
+            out_layers.append(nn.Softmax(dim=-1))
+        self.out = nn.Sequential(*out_layers)
+
+    def forward(self, x):
+        for _, layers in enumerate(self.fc_layers):
+            for layer in layers:
+                if layer is not None:
+                    x = layer(x)
+        return self.out(x)
