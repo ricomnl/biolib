@@ -148,7 +148,9 @@ class LightningModule(pl.LightningModule):
         learning_rate=1e-4,
         weight_decay=0,
         optimizer_cls=torch.optim.Adam,
+        optimizer_kwargs=None,
         lr_scheduler_cls=None,
+        lr_scheduler_kwargs=None,
         criterion=None,
         **kwargs
     ):
@@ -158,8 +160,10 @@ class LightningModule(pl.LightningModule):
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
             
-        self.lr_scheduler_cls = lr_scheduler_cls
         self.optimizer_cls = optimizer_cls
+        self.lr_scheduler_cls = lr_scheduler_cls
+        self.optimizer_kwargs = optimizer_kwargs
+        self.lr_scheduler_kwargs = lr_scheduler_kwargs
         
         self.model = model
         self.criterion = criterion
@@ -168,9 +172,14 @@ class LightningModule(pl.LightningModule):
         return self.model(x)
 
     def configure_optimizers(self):
-        optimizer = self.optimizer_cls(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        optimizer = self.optimizer_cls(
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay,
+            **self.optimizer_kwargs,
+        )
         if self.lr_scheduler_cls is not None:
-            scheduler = self.lr_scheduler_cls(optimizer)
+            scheduler = self.lr_scheduler_cls(optimizer, **self.lr_scheduler_kwargs)
             return [optimizer], [scheduler]
         return [optimizer]
 
