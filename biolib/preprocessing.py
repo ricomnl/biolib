@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scanpy.external as sce
 
-from plotting import cmo_count_density
+from .plotting import cmo_count_density
 
 
 def is_outlier(adata, metric: str, nmads: int):
