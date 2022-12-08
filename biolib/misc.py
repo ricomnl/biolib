@@ -153,6 +153,8 @@ def add_plt_to_slides(
     slide_title=' ',
     slide_notes=' ',
     slide_layout=(1,1),
+    size_dict={}, 
+    transform_dict={},
 ):
     """Appends a matplotlib plot to a Google Slides presentation.
 
@@ -178,6 +180,12 @@ def add_plt_to_slides(
         The notes of the slide to append the plot to. Default: ' '.
     slide_layout : tuple, optional
         The layout of the slide to append the plot to. Default: (1,1).
+    size_dict : dict, optional
+        Dictionary containing the size of the image, by default {}
+        Example: {'height': {'magnitude': 4000000, 'unit': 'EMU'}, 'width': {'magnitude': 4000000, 'unit': 'EMU'}}
+    transform_dict : dict, optional
+        Dictionary containing the transform of the image, by default {}
+        Example: {'scaleX': 1, 'scaleY': 1, 'translateX': 100000, 'translateY': 100000, 'unit': 'EMU'}
     """
     if isinstance(output_path, str):
         output_path = Path(output_path)
@@ -190,4 +198,4 @@ def add_plt_to_slides(
     )
     if new_slide:
         presentation.add_slide(objects=[], layout=slide_layout, title=slide_title, notes=slide_notes)
-    create_image(presentation.pr_id, page_id=presentation.slide_ids[-1], creds=creds, url=url)
+    create_image(presentation.pr_id, page_id=presentation.slide_ids[-1], creds=creds, url=url, size_dict=size_dict, transform_dict=transform_dict)
