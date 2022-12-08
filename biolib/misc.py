@@ -10,29 +10,29 @@ from kedro.extras.datasets.matplotlib import MatplotlibWriter
 
 
 TWO_FIGS_RIGHT = {
-    'scaleX': 1/2,
-    'scaleY': 1/2,
+    'scaleX': 2/3,
+    'scaleY': 2/3,
     'translateX': 4560000,
     'translateY': 1300000,
     'unit': 'EMU',
 }
 TWO_FIGS_LEFT = {
-    'scaleX': 1/2,
-    'scaleY': 1/2,
+    'scaleX': 2/3,
+    'scaleY': 2/3,
     'translateX': 0,
     'translateY': 1300000,
     'unit': 'EMU',
 }
 TWO_FIGS_TOP = {
-    'scaleX': 1/2,
-    'scaleY': 1/2,
+    'scaleX': 2/3,
+    'scaleY': 2/3,
     'translateX': 0,
     'translateY': 0,
     'unit': 'EMU',
 }
 TWO_FIGS_BOTTOM = {
-    'scaleX': 1/2,
-    'scaleY': 1/2,
+    'scaleX': 2/3,
+    'scaleY': 2/3,
     'translateX': 0,
     'translateY': 1300000,
     'unit': 'EMU',
