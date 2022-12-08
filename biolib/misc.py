@@ -13,14 +13,14 @@ TWO_FIGS_RIGHT = {
     'scaleX': 2/3,
     'scaleY': 2/3,
     'translateX': 4560000,
-    'translateY': 1300000,
+    'translateY': 1000000,
     'unit': 'EMU',
 }
 TWO_FIGS_LEFT = {
     'scaleX': 2/3,
     'scaleY': 2/3,
     'translateX': 0,
-    'translateY': 1300000,
+    'translateY': 1000000,
     'unit': 'EMU',
 }
 TWO_FIGS_TOP = {
@@ -34,7 +34,7 @@ TWO_FIGS_BOTTOM = {
     'scaleX': 2/3,
     'scaleY': 2/3,
     'translateX': 0,
-    'translateY': 1300000,
+    'translateY': 1000000,
     'unit': 'EMU',
 }
 
