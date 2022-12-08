@@ -111,6 +111,13 @@ def create_image(presentation_id, page_id, url, creds, size_dict={}, transform_d
         Dictionary containing the transform of the image, by default {}
         Example: {'scaleX': 1, 'scaleY': 1, 'translateX': 100000, 'translateY': 100000, 'unit': 'EMU'}
     """
+    element_properties = {
+        'pageObjectId': page_id,
+    }
+    if size_dict:
+        element_properties['size'] = size_dict
+    if transform_dict:
+        element_properties['transform'] = transform_dict
     try:
         service = build('slides', 'v1', credentials=creds)
         requests = []
@@ -119,11 +126,7 @@ def create_image(presentation_id, page_id, url, creds, size_dict={}, transform_d
             'createImage': {
                 'objectId': image_id,
                 'url': url,
-                'elementProperties': {
-                    'pageObjectId': page_id,
-                    'size': size_dict,
-                    'transform': transform_dict,
-                }
+                'elementProperties': element_properties
             }
         })
 
