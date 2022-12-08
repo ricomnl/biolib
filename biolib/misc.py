@@ -115,13 +115,14 @@ def create_image(presentation_id, page_id, url, creds):
         return error
 
 
-def append_plt_to_slides(
+def add_plt_to_slides(
     plot, 
     output_path, 
     bucket_name, 
     blob_name, 
     presentation, 
     creds,
+    new_slide=True,
     slide_title=' ',
     slide_notes=' ',
     slide_layout=(1,1),
@@ -142,6 +143,8 @@ def append_plt_to_slides(
         The presentation to append the plot to.
     creds : google.auth.credentials.Credentials
         Credentials to use for the signed URL.
+    new_slide : bool, optional
+        Whether to create a new slide or append to an existing one. Default: True.
     slide_title : str, optional
         The title of the slide to append the plot to. Default: ' '.
     slide_notes : str, optional
@@ -158,5 +161,6 @@ def append_plt_to_slides(
     url = generate_download_signed_url_v4(
         bucket_name=bucket_name, blob_name=blob_name, creds=creds
     )
-    presentation.add_slide(objects=[], layout=slide_layout, title=slide_title, notes=slide_notes)
+    if new_slide:
+        presentation.add_slide(objects=[], layout=slide_layout, title=slide_title, notes=slide_notes)
     create_image(presentation.pr_id, page_id=presentation.slide_ids[-1], creds=creds, url=url)

@@ -103,7 +103,7 @@ def knee(adata_filtered, adata_unfiltered=None, plot_cutoff=None, figsize=(8, 5)
         plt.show()
 
 
-def lib_saturation(adata, figsize=(8, 5), color="green", alpha=0.01, show=True):
+def lib_saturation(adata, figsize=(8, 5), color="green", alpha=0.01, ax=None,show=True):
     """Test for library saturation.
     For each cell we ask how many genes did we detect (or see non-zero expression). 
     The idea is that if we have "saturated" our sequencing library then increasing 
@@ -120,10 +120,13 @@ def lib_saturation(adata, figsize=(8, 5), color="green", alpha=0.01, show=True):
         Color of the points, by default "green"
     alpha : float, optional
         Alpha of the points, by default 0.01
+    ax : matplotlib.axes._subplots.AxesSubplot, optional
+        Axis to plot on, by default None
     show : bool, optional
         Whether to show the plot, by default True
     """
-    _, ax = plt.subplots(figsize=figsize)
+    if ax is None:
+        _, ax = plt.subplots(figsize=figsize)
     ax.scatter(np.asarray(adata.X.sum(axis=1))[:,0], np.asarray(np.sum(adata.X>0, axis=1))[:,0], color=color, alpha=alpha)
     ax.set_title("Library Saturation")
     ax.set_xlabel("UMI Counts")
