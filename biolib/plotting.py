@@ -139,7 +139,7 @@ def lib_saturation(adata, figsize=(8, 5), color="green", alpha=0.01, ax=None, sh
     return ax
 
 
-def min_cells_with_genes(adata, min_cells=15, subset_genes=False, figsize=(5,4), bins=100, ax=None, show=True):
+def filter_genes_across_cells(adata, min_cells=15, subset_genes=False, figsize=(5,4), bins=100, ax=None, show=True):
     """Plot genes detected across cells.
 
     Parameters
@@ -182,7 +182,7 @@ def min_cells_with_genes(adata, min_cells=15, subset_genes=False, figsize=(5,4),
     return ax
 
 
-def min_genes_per_cell(adata, min_genes=100, subset_cells=False, figsize=(5,4), bins=100, ax=None, show=True):
+def filter_cells_with_genes(adata, min_genes=100, subset_cells=False, figsize=(5,4), bins=100, ax=None, show=True):
     """Plot the number of genes detected per cell.
 
     Parameters
