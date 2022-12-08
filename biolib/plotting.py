@@ -61,6 +61,47 @@ def prediction_boxplot(
     return fig
 
 
+def knee(adata_filtered, adata_unfiltered=None, plot_cutoff=None, figsize=(8, 5), show=True):
+    """The "knee plot" was introduced in the Drop-seq paper: 
+    - Macosko et al., Highly parallel genome-wide expression profiling of individual cells using nanoliter droplets, 
+    2015. DOI:10.1016/j.cell.2015.05.002
+
+    In this plot cells are ordered by the number of UMI counts associated to them (shown on the x-axis), 
+    and the fraction of droplets with at least that number of cells is shown on the y-axis. 
+    The idea is that "real" cells have a certain number of UMI counts and that a threshold on the 
+    UMI counts filters those cells.
+
+    Parameters
+    ----------
+    adata_filtered : anndata.AnnData
+        AnnData object containing the filtered data.
+    adata_unfiltered : anndata.AnnData, optional
+        AnnData object containing the unfiltered data, by default None
+    plot_cutoff : int, optional
+        If provided, a vertical and horizontal line will be plotted at the cutoff, by default None
+    figsize : tuple, optional
+        Figure size, by default (8, 5)
+    show : bool, optional
+        Whether to show the plot, by default True
+    """
+    knee = np.sort((np.array(adata_filtered.X.sum(axis=1))).flatten())[::-1]
+    _, ax = plt.subplots(figsize=figsize)
+    if adata_unfiltered is not None:
+        uf_knee = np.sort((np.array(adata_unfiltered.X.sum(axis=1))).flatten())[::-1]
+        ax.loglog(range(len(uf_knee)), uf_knee, linewidth=5, color="k")
+        if plot_cutoff:
+            cell_set = np.arange(len(uf_knee))
+            num_cells = cell_set[uf_knee>plot_cutoff][::-1][0]
+            ax.axhline(y=plot_cutoff, linewidth=3, color="k")
+            ax.axvline(x=num_cells, linewidth=3, color="k")
+    ax.loglog(range(len(knee)), knee, linewidth=5, color="g")
+    ax.set_xlabel("Set of Barcodes")
+    ax.set_ylabel("UMI Counts")
+    plt.grid(True, which="both")
+    if show:
+        plt.show()
+
+
 def lib_saturation(adata, figsize=(8, 5), color="green", alpha=0.01, show=True):
     """Test for library saturation.
     For each cell we ask how many genes did we detect (or see non-zero expression). 
