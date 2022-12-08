@@ -9,6 +9,36 @@ from googleapiclient.errors import HttpError
 from kedro.extras.datasets.matplotlib import MatplotlibWriter
 
 
+TWO_FIGS_RIGHT = {
+    'scaleX': 1/2,
+    'scaleY': 1/2,
+    'translateX': 4560000,
+    'translateY': 1300000,
+    'unit': 'EMU',
+}
+TWO_FIGS_LEFT = {
+    'scaleX': 1/2,
+    'scaleY': 1/2,
+    'translateX': 0,
+    'translateY': 1300000,
+    'unit': 'EMU',
+}
+TWO_FIGS_TOP = {
+    'scaleX': 1/2,
+    'scaleY': 1/2,
+    'translateX': 0,
+    'translateY': 0,
+    'unit': 'EMU',
+}
+TWO_FIGS_BOTTOM = {
+    'scaleX': 1/2,
+    'scaleY': 1/2,
+    'translateX': 0,
+    'translateY': 1300000,
+    'unit': 'EMU',
+}
+
+
 class Timer:
     """Timer class for timing code blocks.
     """
@@ -61,7 +91,7 @@ def generate_download_signed_url_v4(bucket_name, blob_name, creds, minutes=15, m
     return url
 
 
-def create_image(presentation_id, page_id, url, creds):
+def create_image(presentation_id, page_id, url, creds, size_dict={}, transform_dict={}):
     """Creates an image in a Google Slides presentation.
     
     Parameters
@@ -74,6 +104,12 @@ def create_image(presentation_id, page_id, url, creds):
         The URL of the image to create.
     creds : google.auth.credentials.Credentials
         Credentials to use for the signed URL.
+    size_dict : dict, optional
+        Dictionary containing the size of the image, by default {}
+        Example: {'height': {'magnitude': 4000000, 'unit': 'EMU'}, 'width': {'magnitude': 4000000, 'unit': 'EMU'}}
+    transform_dict : dict, optional
+        Dictionary containing the transform of the image, by default {}
+        Example: {'scaleX': 1, 'scaleY': 1, 'translateX': 100000, 'translateY': 100000, 'unit': 'EMU'}
     """
     try:
         service = build('slides', 'v1', credentials=creds)
@@ -85,17 +121,8 @@ def create_image(presentation_id, page_id, url, creds):
                 'url': url,
                 'elementProperties': {
                     'pageObjectId': page_id,
-                    # 'size': {
-                    #     'height': emu4M,
-                    #     'width': emu4M
-                    # },
-                    # 'transform': {
-                    #     'scaleX': 1,
-                    #     'scaleY': 1,
-                    #     'translateX': 100000,
-                    #     'translateY': 100000,
-                    #     'unit': 'EMU'
-                    # }
+                    'size': size_dict,
+                    'transform': transform_dict,
                 }
             }
         })
