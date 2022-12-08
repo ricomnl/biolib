@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import scipy
 import seaborn as sns
 from sklearn import metrics
+import scanpy as sc
 
 
 def prediction_boxplot(
@@ -103,7 +104,7 @@ def knee(adata_filtered, adata_unfiltered=None, plot_cutoff=None, figsize=(8, 5)
         plt.show()
 
 
-def lib_saturation(adata, figsize=(8, 5), color="green", alpha=0.01, ax=None,show=True):
+def lib_saturation(adata, figsize=(8, 5), color="green", alpha=0.01, ax=None, show=True):
     """Test for library saturation.
     For each cell we ask how many genes did we detect (or see non-zero expression). 
     The idea is that if we have "saturated" our sequencing library then increasing 
@@ -131,10 +132,98 @@ def lib_saturation(adata, figsize=(8, 5), color="green", alpha=0.01, ax=None,sho
     ax.set_title("Library Saturation")
     ax.set_xlabel("UMI Counts")
     ax.set_ylabel("Genes Detected")
-    ax.set_xscale('log')
-    ax.set_yscale('log')
+    ax.set_xscale('symlog')
+    ax.set_yscale('symlog')
     if show:
         plt.show()
+    return ax
+
+
+def min_cells_with_genes(adata, min_cells=15, subset_genes=False, figsize=(5,4), bins=100, ax=None, show=True):
+    """Plot genes detected across cells.
+
+    Parameters
+    ----------
+    adata : anndata.AnnData
+        AnnData object containing the data.
+    min_cells : int, optional
+        Minimum number of cells in which a gene must be expressed, by default 15
+    subset_genes : bool, optional
+        Whether to subset the genes to those expressed in at least `min_cells` cells, by default False
+    figsize : tuple, optional
+        Size of the figure, by default (5,4)
+    bins : int, optional
+        Number of bins, by default 100
+    ax : matplotlib.axes._subplots.AxesSubplot, optional
+        Axis to plot on, by default None
+    show : bool, optional
+        Whether to show the plot, by default True
+
+    Returns
+    -------
+    matplotlib.axes._subplots.AxesSubplot
+        Axis with the plot
+    """
+    if 'n_cells_by_counts' not in adata.var.keys():
+        adata.var['n_cells_by_counts'] = (adata.X > 0).sum(axis=0).A1
+    if ax is None:
+        fig, ax = plt.subplots(1, figsize=figsize)
+    ax.hist(adata.var['n_cells_by_counts'], bins=bins)
+    ax.set_xlabel('# cells in which gene is expressed')
+    ax.set_ylabel('# of genes')
+    ax.set_yscale('symlog')
+    ax.set_title('Gene detection across cells')
+    ax.axvline(min_cells, c='r', linewidth=0.5)
+    fig.tight_layout()
+    if subset_genes:
+        sc.pp.filter_genes(adata, min_cells=min_cells)
+    if show:
+        plt.show()
+    return ax
+
+
+def min_genes_per_cell(adata, min_genes=100, subset_cells=False, figsize=(5,4), bins=100, ax=None, show=True):
+    """Plot the number of genes detected per cell.
+
+    Parameters
+    ----------
+    adata : anndata.AnnData
+        AnnData object containing the data.
+    min_genes : int, optional
+        Minimum number of genes expressed per cell, by default 100
+    subset_cells : bool, optional
+        Whether to subset the cells to those expressing at least `min_genes` genes, by default False
+    figsize : tuple, optional
+        Size of the figure, by default (5,4)
+    bins : int, optional
+        Number of bins, by default 100
+    ax : matplotlib.axes._subplots.AxesSubplot, optional
+        Axis to plot on, by default None
+    show : bool, optional
+        Whether to show the plot, by default True
+    
+    Returns
+    -------
+    matplotlib.axes._subplots.AxesSubplot
+        Axis with the plot
+    """
+    if 'n_genes_by_counts' not in adata.obs.keys():
+        adata.obs['n_genes_by_counts'] = (adata.X > 0).sum(axis=1).A1
+
+    if ax is None:
+        fig, ax = plt.subplots(1, figsize=figsize)
+    ax.hist(adata.obs['n_genes_by_counts'], bins=bins)
+    ax.set_xlabel('# genes per cell')
+    ax.set_ylabel('# of cells')
+    ax.set_yscale('symlog')
+    ax.set_title('Number of genes per cell')
+    ax.axvline(min_genes, c='r', linewidth=0.5)
+    fig.tight_layout()
+    if subset_cells:
+        sc.pp.filter_cells(adata, min_genes=min_genes)
+    if show:
+        plt.show()
+    return ax
 
 
 def obs_comparison(adata, obs_x, obs_y, log2x=False, log2y=False, title=None, s=8, alpha=0.5, height=5, show=True):
