@@ -134,7 +134,7 @@ def lib_saturation(adata, figsize=(8, 5), color="green", alpha=0.01, show=True):
         plt.show()
 
 
-def obs_comparison(adata, obs_x, obs_y, log2x=False, log2y=False, s=8, alpha=0.5, height=5, show=True):
+def obs_comparison(adata, obs_x, obs_y, log2x=False, log2y=False, title=None, s=8, alpha=0.5, height=5, show=True):
     """Plot a scatter plot of two observations.
 
     Parameters
@@ -178,7 +178,10 @@ def obs_comparison(adata, obs_x, obs_y, log2x=False, log2y=False, s=8, alpha=0.5
         marginal_kws={'common_norm':False}
     )
     ax.set_axis_labels(x_title, y_title)
-    plt.suptitle(f'{obs_x} vs {obs_y}')
+    if title is None:
+        plt.suptitle(f'{obs_x} vs {obs_y}')
+    else:
+        plt.suptitle(title)
     plt.tight_layout()
     if show:
         plt.show()
